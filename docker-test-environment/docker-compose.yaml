@@ -21,9 +21,7 @@ services:
 
   impairment_gateway:
     container_name: impairment_gateway
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: dewcservices/network-impairment-gateway
     privileged: true
     cap_add:
       - NET_ADMIN
