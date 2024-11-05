@@ -44,7 +44,7 @@ services:
       DOWNLINK_INTERFACE: "eth1"
       MOCK_PROCESS_CALLS: "FALSE"
       DATABASE_SEEDED: "FALSE"
-      CORS_ORIGINS: "http://localhost:8081"
+      CORS_ORIGINS: "http://localhost:8080"
     depends_on:
       - iperf3_cloud
       - iperf3_edge
@@ -55,8 +55,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      API_HOST: "http://localhost:8002"
-      WEBSOCKET_HOST: "ws://localhost:8002"
+      API_HOST: "http://localhost:8000"
+      WEBSOCKET_HOST: "ws://localhost:8000"
     depends_on:
       - impairment_gateway
 
