@@ -2,25 +2,33 @@ version: "3"
 services:
   iperf3_cloud:
     container_name: iperf3_cloud
-    image: networkstatic/iperf3
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DEFAULT_GATEWAY: "172.18.0.3"
     privileged: true # permission required to change the subnet gateway to the impairment gateway
-    command: ["sh", "-c", "ip route del default; ip route add default via 172.18.0.3; iperf3 -s"]
+    command: ["iperf3", "-s"]
     networks:
       network_cloud:
         ipv4_address: 172.18.0.2
     
   iperf3_edge:
     container_name: iperf3_edge
-    image: networkstatic/iperf3
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DEFAULT_GATEWAY: "172.19.0.3"
     privileged: true # permission required to change the subnet gateway to the impairment gateway
-    command: ["sh", "-c", "ip route del default; ip route add default via 172.19.0.3; iperf3 -s"]
+    command: ["tail", "-f", "/dev/null"] # Keeps the container running
     networks:
       network_edge:
         ipv4_address: 172.19.0.2
 
   impairment_gateway:
     container_name: impairment_gateway
-    image: dewcservices/network-impairment-gateway
+    image: dewcservices/network-impairment-gateway:1.1.0
     privileged: true
     cap_add:
       - NET_ADMIN
@@ -36,9 +44,21 @@ services:
       DOWNLINK_INTERFACE: "eth1"
       MOCK_PROCESS_CALLS: "FALSE"
       DATABASE_SEEDED: "FALSE"
+      CORS_ORIGINS: "http://localhost:8081"
     depends_on:
       - iperf3_cloud
       - iperf3_edge
+
+  impairment_gateway_ui:
+    container_name: impairment_gateway_ui
+    image: dewcservices/network-impairment-gateway-ui:1.0.2
+    ports:
+      - "8080:8080"
+    environment:
+      API_HOST: "http://localhost:8002"
+      WEBSOCKET_HOST: "ws://localhost:8002"
+    depends_on:
+      - impairment_gateway
 
 networks:
   network_cloud:

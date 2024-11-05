@@ -4,6 +4,7 @@ This setup includes three primary services:
 - **iperf3_cloud**: Acts as the cloud-side endpoint.
 - **iperf3_edge**: Acts as the edge-side endpoint.
 - **impairment_gateway**: A network impairment gateway that applies impairments between the `iperf3_cloud` and `iperf3_edge` containers.
+- **impairment_gateway UI**: Web UI for controlling the network impairment gateway.
 
 ## Usage
 
@@ -15,14 +16,21 @@ This setup includes three primary services:
 1. **Clone the repository** (if applicable):
 
 ```sh
-git clone https://github.com/dewcservices/network-impairment-gateway
+git clone https://github.com/dewcservices/cloud-native-edge-ddil-environment
 cd network-impairment-gateway
+cd docker-iperf3-environment
 ```
 
 2. Start the Docker Compose setup:
 
 ```sh
-docker-compose up -d
+docker-compose -f docker-compose.yaml up -d
+```
+
+NOTE: if you are making changes to the iperf3 dockerfile the following is convinient
+
+```sh
+docker-compose -f docker-compose.yaml up -d --build --force-recreate
 ```
 
 3. Verify Container Status:
@@ -54,17 +62,17 @@ The impairment_gateway container sits between iperf3_cloud and iperf3_edge to si
 - DOWNLINK_INTERFACE: The downlink interface for edge traffic.
 - MOCK_PROCESS_CALLS: Set to FALSE to disable mock calls.
 - DATABASE_SEEDED: Set to FALSE to disable auto-seeding.
+- CORS_ORIGINS: hostname of the impairment gateway ui.
 
 ### Accessing the Impairment Gateway UI
-The impairment gateway’s interface can be accessed at http://localhost:8000.
-
+The impairment gateway’s interface can be accessed at http://localhost:8080.
 
 ### Stopping the Environment
 
 To stop and remove all services, run:
 
 ```sh
-docker-compose down
+docker-compose -f docker-compose.yaml down
 ```
 ### Troubleshooting
 If there are issues with network routes or impairments, check the logs for each container:
