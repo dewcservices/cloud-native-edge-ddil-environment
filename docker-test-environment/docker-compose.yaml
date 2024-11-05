@@ -21,7 +21,7 @@ services:
 
   impairment_gateway:
     container_name: impairment_gateway
-    image: dewcservices/network-impairment-gateway
+    image: dewcservices/network-impairment-gateway:latest
     privileged: true
     cap_add:
       - NET_ADMIN
@@ -37,9 +37,21 @@ services:
       DOWNLINK_INTERFACE: "eth1"
       MOCK_PROCESS_CALLS: "FALSE"
       DATABASE_SEEDED: "FALSE"
+      CORS_ORIGINS: "http://localhost:8080"
     depends_on:
       - container_cloud
       - container_edge
+
+  impairment_gateway_ui:
+    container_name: impairment_gateway_ui
+    image: dewcservices/network-impairment-gateway-ui:latest
+    ports:
+      - "8080:8080"
+    environment:
+      API_HOST: "http://localhost:8000"
+      WEBSOCKET_HOST: "ws://localhost:8000"
+    depends_on:
+      - impairment_gateway
 
 networks:
   network_cloud:
