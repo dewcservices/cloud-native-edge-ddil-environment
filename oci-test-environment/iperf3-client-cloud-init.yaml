@@ -1,0 +1,39 @@
+write_files:
+  - path: /etc/profile.d/podman.sh
+    permissions: '0644'
+    content: |
+      # Set environment variable for the location of the Podman socket
+      export DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock
+      # Disable BuildKit as it doesn't work well with Podman
+      export DOCKER_BUILDKIT=0
+  - path: /etc/sudoers.d/developers
+    permissions: '0440'
+    owner: root:root
+    content: |
+      %developers ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/tc, /usr/sbin/ip, /usr/sbin/ifconfig
+users:
+ - default
+ - name: <username>
+   groups: developers
+   ssh_authorized_keys:
+      - <user-public-key>
+   shell: /bin/bash
+ - name: <admin-account-name>
+   sudo: ALL=(ALL) NOPASSWD:ALL
+   lock_passwd: false
+   ssh_authorized_keys:
+      - <admin-public-ssh-key>
+   shell: /bin/bash
+runcmd:
+ - sudo dd iflag=direct if=/dev/oracleoci/oraclevda of=/dev/null count=1
+ - echo "1" | sudo tee /sys/class/block/`readlink /dev/oracleoci/oraclevda | cut -d'/' -f 2`/device/rescan
+ - sudo /usr/libexec/oci-growfs -y
+ - sudo dnf update
+ - sudo dnf upgrade
+ - sudo dnf install -y oracle-cloud-agent uptrack
+ - sudo systemctl enable oracle-cloud-agent 
+ - sudo systemctl start oracle-cloud-agent
+ - sudo curl -SL https://github.com/docker/compose/releases/download/v2.15.1/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+ - sudo chmod +x /usr/local/bin/docker-compose
+ - sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+ - sudo systemctl enable --now podman.socket

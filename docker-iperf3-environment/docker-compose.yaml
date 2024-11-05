@@ -1,0 +1,54 @@
+version: "3"
+services:
+  iperf3_cloud:
+    container_name: iperf3_cloud
+    image: networkstatic/iperf3
+    privileged: true # permission required to change the subnet gateway to the impairment gateway
+    command: ["sh", "-c", "ip route del default; ip route add default via 172.18.0.3; iperf3 -s"]
+    networks:
+      network_cloud:
+        ipv4_address: 172.18.0.2
+    
+  iperf3_edge:
+    container_name: iperf3_edge
+    image: networkstatic/iperf3
+    privileged: true # permission required to change the subnet gateway to the impairment gateway
+    command: ["sh", "-c", "ip route del default; ip route add default via 172.19.0.3; iperf3 -s"]
+    networks:
+      network_edge:
+        ipv4_address: 172.19.0.2
+
+  impairment_gateway:
+    container_name: impairment_gateway
+    image: dewcservices/network-impairment-gateway
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8000:8000"
+    networks:
+      network_cloud:
+        ipv4_address: 172.18.0.3
+      network_edge:
+        ipv4_address: 172.19.0.3
+    environment:
+      UPLINK_INTERFACE: "eth0"
+      DOWNLINK_INTERFACE: "eth1"
+      MOCK_PROCESS_CALLS: "FALSE"
+      DATABASE_SEEDED: "FALSE"
+    depends_on:
+      - iperf3_cloud
+      - iperf3_edge
+
+networks:
+  network_cloud:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+
+  network_edge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16

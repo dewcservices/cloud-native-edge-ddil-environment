@@ -1,0 +1,62 @@
+version: "3"
+services:
+  rancher:
+    container_name: rancher
+    image: rancher/rancher:latest
+    privileged: true
+    ports:
+      - "8080:80"
+      - "8443:443"
+    networks:
+      network_cloud:
+        ipv4_address: 172.18.0.2
+    command: ["--acme-domain", "your-domain.com"]
+
+  kind_cluster:
+    container_name: kind_cluster
+    image: kindest/node:v1.24.0
+    privileged: true
+    networks:
+      network_edge:
+        ipv4_address: 172.19.0.2
+    environment:
+      KUBECONFIG: /root/.kube/config
+    depends_on:
+      - rancher
+    volumes:
+      - ./kubeconfig:/root/.kube/config
+
+  impairment_gateway:
+    container_name: impairment_gateway
+    image: dewcservices/network-impairment-gateway
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8000:8000"
+    networks:
+      network_cloud:
+        ipv4_address: 172.18.0.3
+      network_edge:
+        ipv4_address: 172.19.0.3
+    environment:
+      UPLINK_INTERFACE: "eth0"
+      DOWNLINK_INTERFACE: "eth1"
+      MOCK_PROCESS_CALLS: "FALSE"
+      DATABASE_SEEDED: "FALSE"
+    depends_on:
+      - rancher
+      - kind_cluster
+
+networks:
+  network_cloud:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+
+  network_edge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
