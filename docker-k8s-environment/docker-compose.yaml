@@ -4,27 +4,15 @@ services:
     container_name: rancher
     image: rancher/rancher:latest
     privileged: true
+    restart: always
     ports:
-      - "8080:80"
+      - "8081:80"
       - "8443:443"
     networks:
       network_cloud:
         ipv4_address: 172.18.0.2
-    command: ["--acme-domain", "your-domain.com"]
-
-  kind_cluster:
-    container_name: kind_cluster
-    image: kindest/node:v1.24.0
-    privileged: true
-    networks:
-      network_edge:
-        ipv4_address: 172.19.0.2
-    environment:
-      KUBECONFIG: /root/.kube/config
-    depends_on:
-      - rancher
-    volumes:
-      - ./kubeconfig:/root/.kube/config
+    #command: ["--no-cacerts"]
+    command: ["sh", "-c", "ip route del default; ip route add default via 172.18.0.3; rancher --no-cacerts"]
 
   impairment_gateway:
     container_name: impairment_gateway
@@ -46,7 +34,17 @@ services:
       DATABASE_SEEDED: "FALSE"
     depends_on:
       - rancher
-      - kind_cluster
+
+  impairment_gateway_ui:
+    container_name: impairment_gateway_ui
+    image: dewcservices/network-impairment-gateway-ui
+    ports:
+      - "8080:8080"
+    environment:
+      API_HOST: "http://localhost:8000"
+      WEBSOCKET_HOST: "ws://localhost:8000"
+    depends_on:
+      - impairment_gateway
 
 networks:
   network_cloud:

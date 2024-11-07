@@ -15,8 +15,22 @@ This setup deploys a Rancher server and a `kind` Kubernetes cluster using Docker
 Clone this repository to get the `docker-compose.yml` file and other setup scripts.
 
 ```bash
-git clone https://github.com/your-repo/network-impairment-gateway
+git clone https://github.com/dewcservices/cloud-native-edge-ddil-environment
 cd network-impairment-gateway
+cd docker-k8s-environment
+```
+
+### Step 2: Install Kind
+
+[installing-from-release-binaries](https://kind.sigs.k8s.io/docs/user/quick-start#installing-from-release-binaries)
+
+Download and install kind using the following command:
+
+
+```sh
+[ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
 ```
 
 ### Step 2: Start Docker Compose Services
@@ -24,7 +38,7 @@ cd network-impairment-gateway
 Run the Docker Compose command to start Rancher, the kind cluster, and the impairment gateway.
 
 ```sh
-docker-compose up -d
+sudo docker-compose -f docker-compose.yaml up -d
 ```
 
 ### Step 3: Access Rancher
@@ -46,7 +60,7 @@ nodes:
 2. Run the command to create the kind cluster:
 
 ```sh
-kind create cluster --name kind-cluster --config kind-config.yaml
+kind create cluster --name rancher-managed --config kind-cluster-config.yaml
 ```
 
 3. Export the kubeconfig to allow Rancher to register the kind cluster:
