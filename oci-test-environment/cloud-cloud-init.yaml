@@ -5,6 +5,7 @@ write_files:
     owner: root:root
     content: |
       %developers ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/ip, /usr/sbin/ifconfig
+
   # Create a systemd service for Rancher
   - path: /etc/systemd/system/rancher.service
     content: |
@@ -42,7 +43,7 @@ runcmd:
   - sudo /usr/libexec/oci-growfs -y
   - sudo dnf update
   - sudo dnf upgrade
-  - sudo dnf install -y oracle-cloud-agent uptrack dnf-utils net-tools
+  - sudo dnf install -y oracle-cloud-agent uptrack dnf-utils net-tools iperf3 iproute2
   - sudo systemctl enable oracle-cloud-agent 
   - sudo systemctl start oracle-cloud-agent
   # Disable Firewalld
@@ -73,13 +74,14 @@ runcmd:
     gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
     EOF
   # Install kubectl
-  - dnf install -y kubectl
+  - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  - chmod +x ./kubectl
+  - sudo mv ./kubectl /usr/local/bin/kubectl
+  - sudo ln -s /usr/local/bin/kubectl /usr/bin/kubectl
   # Add vagrant to docker group
   - usermod -a -G docker <username>
   # Enable Docker
   - systemctl enable docker.service
   # Start Docker
   - systemctl start docker.service
-  # Enable and start the Rancher service
-  - systemctl enable rancher.service
-  - systemctl start rancher.service
+

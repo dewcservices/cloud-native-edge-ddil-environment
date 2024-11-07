@@ -1,0 +1,121 @@
+#cloud-config
+write_files:
+  - path: /etc/sudoers.d/developers
+    permissions: '0440'
+    owner: root:root
+    content: |
+      %developers ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/ip, /usr/sbin/ifconfig, /sbin/modprobe sch_netem, /usr/bin/docker, /usr/bin/docker-compose
+  - path: /etc/systemd/system/load-sch-netem.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      [Unit]
+      Description=Load sch_netem module at boot
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/sbin/modprobe sch_netem
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+  # Create a systemd service for Rancher
+  - path: /etc/systemd/system/network-impairment-gateway-ui.service
+    content: |
+      [Unit]
+      Description=Network Impairment Gateway UI
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      ExecStart=/usr/bin/docker run --privileges -d --restart=unless-stopped -p 8000:8000 -e API_HOST: "http://localhost:8000" -e
+      WEBSOCKET_HOST: "ws://localhost:8000" -name network-impairment-gateway-ui dewcservices/network-impairment-gateway-ui
+      ExecStop=/usr/bin/docker stop network-impairment-gateway-ui
+      ExecStopPost=/usr/bin/docker rm -f network-impairment-gateway-ui
+      Restart=always
+      TimeoutStartSec=0
+
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+users:
+  - default
+  - name: <username>
+    groups: developers
+    ssh_authorized_keys:
+        - <user-public-key>
+    shell: /bin/bash
+  - name: <admin-account-name>
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    ssh_authorized_keys:
+        - <admin-public-ssh-key>
+    shell: /bin/bash
+runcmd:
+  - sudo dd iflag=direct if=/dev/oracleoci/oraclevda of=/dev/null count=1
+  - echo "1" | sudo tee /sys/class/block/`readlink /dev/oracleoci/oraclevda | cut -d'/' -f 2`/device/rescan
+  - sudo /usr/libexec/oci-growfs -y
+  - sudo dnf update
+  - sudo dnf upgrade
+  - sudo dnf install -y oracle-cloud-agent uptrack dnf-utils net-tools kernel-uek-modules-extra
+  - sudo systemctl enable oracle-cloud-agent 
+  - sudo systemctl start oracle-cloud-agent
+  # Disable Firewalld
+  - sudo systemctl disable firewalld
+  # Disable SELinux
+  - sudo setenforce 0
+  - sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+  # Remove docker
+  - sudo dnf remove -y runc
+  # Setup docker repo
+  - sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+    # Install Docker
+  - sudo dnf install -y docker-ce
+  # download docker-compose
+  - sudo curl -SL https://github.com/docker/compose/releases/download/v2.15.1/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+  # configure and install docker-compose
+  - sudo chmod +x /usr/local/bin/docker-compose
+  - sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+   # Setup Kubernetes repo
+  - |
+    cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+    [kubernetes]
+    name=Kubernetes
+    baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+    enabled=1
+    gpgcheck=1
+    repo_gpgcheck=1
+    gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    EOF
+  # Install kubectl
+  - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  - chmod +x ./kubectl
+  - sudo mv ./kubectl /usr/local/bin/kubectl
+  - sudo ln -s /usr/local/bin/kubectl /usr/bin/kubectl
+  # Add vagrant to docker group
+  - usermod -a -G docker <username>
+  # Enable Docker
+  - systemctl enable docker.service
+  # Start Docker
+  - systemctl start docker.service
+  # Enable and start the Rancher service
+  - systemctl enable load-sch-netem.service
+  - systemctl start load-sch-netem.service
+    # Enable and start the ui service
+  - systemctl enable network-impairment-gateway-ui.service
+  - systemctl start network-impairment-gateway-ui.service
+  - sudo sysctl -w net.ipv4.ip_forward=1
+  # Set up iptables rules to forward traffic between UPLINK_INTERFACE (cloud) and DOWNLINK_INTERFACE (edge)
+  - sudo iptables -A FORWARD -i "$UPLINK_INTERFACE" -o "$DOWNLINK_INTERFACE" -j ACCEPT
+  - sudo iptables -A FORWARD -i "$DOWNLINK_INTERFACE" -o "$UPLINK_INTERFACE" -j ACCEPT
+  # Enable NAT for outgoing packets from UPLINK_INTERFACE to DOWNLINK_INTERFACE and vice versa (optional, for proper routing)
+  - sudo iptables -t nat -A POSTROUTING -o "$DOWNLINK_INTERFACE" -j MASQUERADE
+  - sudo iptables -t nat -A POSTROUTING -o "$UPLINK_INTERFACE" -j MASQUERADE
+  # install backend
+  - sudo alternatives --set python /usr/bin/python3.11
+  - cd /home/<username>
+  - git clone https://github.com/dewcservices/network-impairment-gateway.git 
+  # Start fastapi app with uvicorn
+  - cd network-impairment-gateway
+  - exec uvicorn app.main:app --host 0.0.0.0 --port 8000
