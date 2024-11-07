@@ -1,0 +1,85 @@
+#cloud-config
+write_files:
+  - path: /etc/sudoers.d/developers
+    permissions: '0440'
+    owner: root:root
+    content: |
+      %developers ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/ip, /usr/sbin/ifconfig
+  # Create a systemd service for Rancher
+  - path: /etc/systemd/system/rancher.service
+    content: |
+      [Unit]
+      Description=Rancher Container
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      ExecStart=/usr/bin/docker run --privileged -d --restart=unless-stopped -p 80:80 -p 443:443 rancher/rancher --no-cacerts
+      ExecStop=/usr/bin/docker stop rancher
+      ExecStopPost=/usr/bin/docker rm -f rancher
+      Restart=always
+      TimeoutStartSec=0
+
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+users:
+  - default
+  - name: <username>
+    groups: developers
+    ssh_authorized_keys:
+        - <user-public-key>
+    shell: /bin/bash
+  - name: <admin-account-name>
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    ssh_authorized_keys:
+        - <admin-public-ssh-key>
+    shell: /bin/bash
+runcmd:
+  - sudo dd iflag=direct if=/dev/oracleoci/oraclevda of=/dev/null count=1
+  - echo "1" | sudo tee /sys/class/block/`readlink /dev/oracleoci/oraclevda | cut -d'/' -f 2`/device/rescan
+  - sudo /usr/libexec/oci-growfs -y
+  - sudo dnf update
+  - sudo dnf upgrade
+  - sudo dnf install -y oracle-cloud-agent uptrack dnf-utils net-tools
+  - sudo systemctl enable oracle-cloud-agent 
+  - sudo systemctl start oracle-cloud-agent
+  # Disable Firewalld
+  - sudo systemctl disable firewalld
+  # Disable SELinux
+  - sudo setenforce 0
+  - sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+  # Remove docker
+  - sudo dnf remove -y runc
+  # Setup docker repo
+  - sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+    # Install Docker
+  - sudo dnf install -y docker-ce
+  # download docker-compose
+  - sudo curl -SL https://github.com/docker/compose/releases/download/v2.15.1/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+  # configure and install docker-compose
+  - sudo chmod +x /usr/local/bin/docker-compose
+  - sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+   # Setup Kubernetes repo
+  - |
+    cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+    [kubernetes]
+    name=Kubernetes
+    baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+    enabled=1
+    gpgcheck=1
+    repo_gpgcheck=1
+    gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    EOF
+  # Install kubectl
+  - dnf install -y kubectl
+  # Add vagrant to docker group
+  - usermod -a -G docker <username>
+  # Enable Docker
+  - systemctl enable docker.service
+  # Start Docker
+  - systemctl start docker.service
+  # Enable and start the Rancher service
+  - systemctl enable rancher.service
+  - systemctl start rancher.service
