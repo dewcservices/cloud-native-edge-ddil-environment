@@ -29,8 +29,7 @@ write_files:
       Requires=docker.service
 
       [Service]
-      ExecStart=/usr/bin/docker run --privileges -d --restart=unless-stopped -p 8000:8000 -e API_HOST: "http://localhost:8000" -e
-      WEBSOCKET_HOST: "ws://localhost:8000" -name network-impairment-gateway-ui dewcservices/network-impairment-gateway-ui
+      ExecStart=/usr/bin/docker run --privileged -d --restart=unless-stopped -p 8080:8080 -e API_HOST="http://localhost:8000" -e WEBSOCKET_HOST="ws://localhost:8000" -name network-impairment-gateway-ui dewcservices/network-impairment-gateway-ui
       ExecStop=/usr/bin/docker stop network-impairment-gateway-ui
       ExecStopPost=/usr/bin/docker rm -f network-impairment-gateway-ui
       Restart=always
@@ -58,7 +57,7 @@ runcmd:
   - sudo /usr/libexec/oci-growfs -y
   - sudo dnf update
   - sudo dnf upgrade
-  - sudo dnf install -y oracle-cloud-agent uptrack dnf-utils net-tools kernel-uek-modules-extra
+  - sudo dnf install -y oracle-cloud-agent uptrack dnf-utils net-tools kernel-uek-modules-extra git
   - sudo systemctl enable oracle-cloud-agent 
   - sudo systemctl start oracle-cloud-agent
   # Disable Firewalld
@@ -77,45 +76,29 @@ runcmd:
   # configure and install docker-compose
   - sudo chmod +x /usr/local/bin/docker-compose
   - sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-   # Setup Kubernetes repo
-  - |
-    cat <<EOF > /etc/yum.repos.d/kubernetes.repo
-    [kubernetes]
-    name=Kubernetes
-    baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-    enabled=1
-    gpgcheck=1
-    repo_gpgcheck=1
-    gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-    EOF
   # Install kubectl
   - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
   - chmod +x ./kubectl
   - sudo mv ./kubectl /usr/local/bin/kubectl
   - sudo ln -s /usr/local/bin/kubectl /usr/bin/kubectl
-  # Add vagrant to docker group
-  - usermod -a -G docker <username>
+  # Add user to docker group
+  - sudo usermod -a -G docker <username>
   # Enable Docker
-  - systemctl enable docker.service
+  - sudo systemctl enable docker.service
   # Start Docker
-  - systemctl start docker.service
+  - sudo systemctl start docker.service
   # Enable and start the Rancher service
-  - systemctl enable load-sch-netem.service
-  - systemctl start load-sch-netem.service
+  - sudo systemctl enable load-sch-netem.service
+  - sudo systemctl start load-sch-netem.service
     # Enable and start the ui service
-  - systemctl enable network-impairment-gateway-ui.service
-  - systemctl start network-impairment-gateway-ui.service
-  - sudo sysctl -w net.ipv4.ip_forward=1
-  # Set up iptables rules to forward traffic between UPLINK_INTERFACE (cloud) and DOWNLINK_INTERFACE (edge)
-  - sudo iptables -A FORWARD -i "$UPLINK_INTERFACE" -o "$DOWNLINK_INTERFACE" -j ACCEPT
-  - sudo iptables -A FORWARD -i "$DOWNLINK_INTERFACE" -o "$UPLINK_INTERFACE" -j ACCEPT
-  # Enable NAT for outgoing packets from UPLINK_INTERFACE to DOWNLINK_INTERFACE and vice versa (optional, for proper routing)
-  - sudo iptables -t nat -A POSTROUTING -o "$DOWNLINK_INTERFACE" -j MASQUERADE
-  - sudo iptables -t nat -A POSTROUTING -o "$UPLINK_INTERFACE" -j MASQUERADE
+  - sudo systemctl enable network-impairment-gateway-ui.service
+  - sudo systemctl start network-impairment-gateway-ui.service
   # install backend
+  - sudo dnf install -y python3.11
   - sudo alternatives --set python /usr/bin/python3.11
-  - cd /home/<username>
+  - cd /home/boswellt
   - git clone https://github.com/dewcservices/network-impairment-gateway.git 
   # Start fastapi app with uvicorn
   - cd network-impairment-gateway
+  - pip install -r requirements.txt
   - exec uvicorn app.main:app --host 0.0.0.0 --port 8000

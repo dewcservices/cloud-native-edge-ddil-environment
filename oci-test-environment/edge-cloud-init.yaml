@@ -1,43 +1,61 @@
+#cloud-config
 write_files:
-  - path: /etc/profile.d/podman.sh
-    permissions: '0644'
-    content: |
-      # Set environment variable for the location of the Podman socket
-      export DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock
-      # Disable BuildKit as it doesn't work well with Podman
-      export DOCKER_BUILDKIT=0
   - path: /etc/sudoers.d/developers
     permissions: '0440'
     owner: root:root
     content: |
-      %developers ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/tc, /usr/sbin/ip, /usr/sbin/ifconfig
+      %developers ALL=(ALL) NOPASSWD:ALL
 users:
- - default
- - name: <username>
-   groups: developers
-   ssh_authorized_keys:
+  - default
+  - name: <username>
+    groups: developers
+    ssh_authorized_keys:
       - <user-public-key>
-   shell: /bin/bash
- - name: <admin-account-name>
-   sudo: ALL=(ALL) NOPASSWD:ALL
-   lock_passwd: false
-   ssh_authorized_keys:
+    shell: /bin/bash
+  - name: dewc-admin
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    ssh_authorized_keys:
       - <admin-public-ssh-key>
-   shell: /bin/bash
+    shell: /bin/bash
 runcmd:
   - sudo dd iflag=direct if=/dev/oracleoci/oraclevda of=/dev/null count=1
   - echo "1" | sudo tee /sys/class/block/`readlink /dev/oracleoci/oraclevda | cut -d'/' -f 2`/device/rescan
   - sudo /usr/libexec/oci-growfs -y
-  - sudo dnf update
-  - sudo dnf upgrade
-  - sudo dnf install -y oracle-cloud-agent uptrack dnf-utils net-tools iperf3 iproute2
+  - sudo dnf update -y
+  - sudo dnf upgrade -y
+  - sudo dnf install -y oracle-cloud-agent uptrack dnf-utils net-tools iperf3 iproute2 git
   - sudo systemctl enable oracle-cloud-agent 
   - sudo systemctl start oracle-cloud-agent
+  # Disable Firewalld
+  - sudo systemctl disable firewalld
+  # Disable SELinux
+  - sudo setenforce 0
+  - sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+  # Remove docker
+  - sudo dnf remove -y runc
+  # Setup docker repo
+  - sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+  # Install Docker
+  - sudo dnf install -y docker-ce
+  # download docker-compose
   - sudo curl -SL https://github.com/docker/compose/releases/download/v2.15.1/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+  # configure and install docker-compose
   - sudo chmod +x /usr/local/bin/docker-compose
   - sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+  # Install kubectl
+  - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  - chmod +x ./kubectl
+  - sudo mv ./kubectl /usr/local/bin/kubectl
+  - sudo ln -s /usr/local/bin/kubectl /usr/bin/kubectl
   # install kind
-  - [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+  - curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
   - chmod +x ./kind
   - sudo mv ./kind /usr/local/bin/kind
   - sudo ln -s /usr/local/bin/kind /usr/bin/kind
+    # Add user to docker group
+  - sudo usermod -a -G docker <username>
+  # Enable Docker
+  - sudo systemctl enable docker.service
+  # Start Docker
+  - sudo systemctl start docker.service

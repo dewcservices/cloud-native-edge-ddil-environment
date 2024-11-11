@@ -5,7 +5,6 @@ write_files:
     owner: root:root
     content: |
       %developers ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/ip, /usr/sbin/ifconfig
-
   # Create a systemd service for Rancher
   - path: /etc/systemd/system/rancher.service
     content: |
@@ -15,7 +14,7 @@ write_files:
       Requires=docker.service
 
       [Service]
-      ExecStart=/usr/bin/docker run --privileged -d --restart=unless-stopped -p 80:80 -p 443:443 rancher/rancher --no-cacerts
+      ExecStart=/usr/bin/docker run --privileged -d --restart=unless-stopped -p 80:80 -p 8443:443 rancher/rancher --no-cacerts
       ExecStop=/usr/bin/docker stop rancher
       ExecStopPost=/usr/bin/docker rm -f rancher
       Restart=always
@@ -29,13 +28,13 @@ users:
   - name: <username>
     groups: developers
     ssh_authorized_keys:
-        - <user-public-key>
+      - <user-public-key>
     shell: /bin/bash
   - name: <admin-account-name>
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: false
     ssh_authorized_keys:
-        - <admin-public-ssh-key>
+      - <admin-public-ssh-key>
     shell: /bin/bash
 runcmd:
   - sudo dd iflag=direct if=/dev/oracleoci/oraclevda of=/dev/null count=1
@@ -62,17 +61,6 @@ runcmd:
   # configure and install docker-compose
   - sudo chmod +x /usr/local/bin/docker-compose
   - sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-   # Setup Kubernetes repo
-  - |
-    cat <<EOF > /etc/yum.repos.d/kubernetes.repo
-    [kubernetes]
-    name=Kubernetes
-    baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-    enabled=1
-    gpgcheck=1
-    repo_gpgcheck=1
-    gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-    EOF
   # Install kubectl
   - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
   - chmod +x ./kubectl
