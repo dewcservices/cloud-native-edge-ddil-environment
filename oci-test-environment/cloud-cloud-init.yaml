@@ -4,7 +4,8 @@ write_files:
     permissions: '0440'
     owner: root:root
     content: |
-      %developers ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/ip, /usr/sbin/ifconfig
+      %developers ALL=(ALL) NOPASSWD:ALL
+    # %developers ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/ip, /usr/sbin/ifconfig
   # Create a systemd service for Rancher
   - path: /etc/systemd/system/rancher.service
     content: |
@@ -67,9 +68,9 @@ runcmd:
   - sudo mv ./kubectl /usr/local/bin/kubectl
   - sudo ln -s /usr/local/bin/kubectl /usr/bin/kubectl
   # Add vagrant to docker group
-  - usermod -a -G docker <username>
+  - sudo usermod -a -G docker <username>
   # Enable Docker
-  - systemctl enable docker.service
+  - sudo systemctl enable docker.service
   # Start Docker
-  - systemctl start docker.service
+  - sudo systemctl start docker.service
 

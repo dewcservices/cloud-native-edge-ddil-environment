@@ -20,7 +20,7 @@ write_files:
 
       [Install]
       WantedBy=multi-user.target
-  # Create a systemd service for Rancher
+  # Create a systemd service for NIG
   - path: /etc/systemd/system/network-impairment-gateway-ui.service
     content: |
       [Unit]
