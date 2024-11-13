@@ -28,7 +28,7 @@ services:
 
   impairment_gateway:
     container_name: impairment_gateway
-    image: dewcservices/network-impairment-gateway:1.1.0
+    image: dewcservices/network-impairment-gateway:1.1.3
     privileged: true
     cap_add:
       - NET_ADMIN
@@ -51,7 +51,7 @@ services:
 
   impairment_gateway_ui:
     container_name: impairment_gateway_ui
-    image: dewcservices/network-impairment-gateway-ui:1.0.2
+    image: dewcservices/network-impairment-gateway-ui:1.0.5
     ports:
       - "8080:8080"
     environment:

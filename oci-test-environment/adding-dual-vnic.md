@@ -5,6 +5,10 @@ https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm#Installing
 sudo dnf install -y python36-oci-cli
 ```
 
+```sh
+oci setup config
+```
+
 2. install oci utils
 https://docs.public.oneportal.content.oci.oraclecloud.com/en-us/iaas/oracle-linux/oci-utils/index.htm#oci-network-config__create_attach_vnic
 

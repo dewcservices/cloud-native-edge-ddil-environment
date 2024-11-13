@@ -47,7 +47,7 @@ docker ps
 
 Example:
 ```sh
-docker exec -it iperf3_edge iperf3 -c 172.18.0.2
+docker exec -it iperf3_edge iperf3 -c 172.18.0.2 -t 240
 ```
 
 This command tests network performance between the iperf3_edge (client) and iperf3_cloud (server) containers.
