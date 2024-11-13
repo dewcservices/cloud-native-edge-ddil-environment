@@ -1,10 +1,29 @@
-# Cloud-Native DDIL Test Environment
+# Cloud Native DDIL Test Environment
 
-This repository provides a suite of test environments to simulate and test Disrupted, Disconnected, Intermittent, and Limited (DDIL) network scenarios. It offers Docker-based and Oracle Cloud Infrastructure (OCI)-based environments, leveraging the [network impairment gateway](https://github.com/dewcservices/network-impairment-gateway) and its [user interface]( https://github.com/dewcservices/network-impairment-gateway-ui), Rancher, Kubernetes, and iPerf3 traffic generation tools.
+This repository provides a suite of test environments to simulate and test Disrupted, Disconnected, Intermittent, and Limited (DDIL) network scenarios. 
+It offers Docker-based and Oracle Cloud Infrastructure (OCI)-based environments, leveraging the [network impairment gateway](https://github.com/dewcservices/network-impairment-gateway) 
+and its [user interface]( https://github.com/dewcservices/network-impairment-gateway-ui), Rancher, Kubernetes, and iPerf3 traffic generation tools.
 
-## Repository Structure
+## Test Environment configurations
 
-- **./docker-iperf3-environment**: Uses Docker Compose to deploy two Docker networks, `cloud` and `edge`. This environment includes:
+Current two type of environments are supported, docker and oci.
+
+## Docker environments
+
+Docker environments a support to provide a simple way of either creating a DDIL environment to test container workloads on a single machine, or to experiment with the network impairment gateway.
+
+### docker-test-environment
+
+**Location**: ./docker-test-environment
+
+**Description**: A minimal DDIL test environment using Docker which establishes two networks `cloud_network` and `edge_network`, with a busybox container in each network
+and a network impairment gateway container private connectivity for the cloud and edge networks.
+The busybox containers are deployed to each network for basic network exploration, such as ping tests, under DDIL conditions.
+
+
+**Location**: ./docker-iperf3-environment
+
+**Description**: Uses Docker Compose to deploy two Docker networks, `cloud` and `edge`. This environment includes:
   - A **network impairment gateway** container, configured to simulate DDIL conditions.
   - A **cloud iPerf3 server** container on the cloud network.
   - An **edge iPerf3 client** container on the edge network.
@@ -17,8 +36,6 @@ This repository provides a suite of test environments to simulate and test Disru
   
   This setup provides a basic Rancher test environment, demonstrating remote Kubernetes cluster management under DDIL conditions.
 
-- **./docker-test-environment**: A minimal DDIL test environment using Docker to create `cloud` and `edge` networks.
-  - **Busybox** containers are deployed to each network for basic network exploration, such as ping tests, under DDIL conditions.
 
 - **./oci-test-environment**: Designed for deployment on Oracle Cloud Infrastructure (OCI) with cloud-init files for configuring Oracle Linux VMs.
   - **Cloud VM**: Runs a single-node Rancher instance and iPerf3 server.

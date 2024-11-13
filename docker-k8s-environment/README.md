@@ -1,31 +1,18 @@
 # Network Impairment Gateway with Rancher and Kind Cluster
 
-This setup deploys a Rancher server and a `kind` Kubernetes cluster using Docker Compose, along with a Network Impairment Gateway. The Rancher server will manage the `kind` Kubernetes cluster, and the impairment gateway will handle traffic between them.
+This setup deploys a Rancher server and a `kind` Kubernetes cluster using Docker Compose, along with a Network Impairment Gateway. The Rancher server will manage the `kind` Kubernetes cluster, and the impairment gateway provides an API and a UI for controlling network impairments between them.
 
-## Prerequisites
+## Operating System Dependencies:
 
-1. **Docker**: Make sure Docker is installed and running.
-2. **Kind CLI**: Install [Kind](https://kind.sigs.k8s.io/).
-3. **Kubectl**: Install [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
+- network emulation (netem) enabled within the kernel
+- sufficient permissions to execute docker with NET_ADMIN privileges 
+- docker, docker-compose, iptables, ip, ifconfig, and modprobe
 
-## Setup Instructions
-
-### Step 1: Clone Repository
-
-Clone this repository to get the `docker-compose.yml` file and other setup scripts.
-
-```bash
-git clone https://github.com/dewcservices/cloud-native-edge-ddil-environment
-cd network-impairment-gateway
-cd docker-k8s-environment
-```
-
-### Step 2: Install Kind
+### Install Kind
 
 [installing-from-release-binaries](https://kind.sigs.k8s.io/docs/user/quick-start#installing-from-release-binaries)
 
 Download and install kind using the following command:
-
 
 ```sh
 [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
@@ -33,20 +20,96 @@ chmod +x ./kind
 sudo mv ./kind /usr/local/bin/kind
 ```
 
-### Step 2: Start Docker Compose Services
+### Install kubectl
 
-Run the Docker Compose command to start Rancher, the kind cluster, and the impairment gateway.
+Install [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
+
+Kubernetes cli for interacting with the kind cluster
 
 ```sh
-sudo docker-compose -f docker-compose.yaml up -d
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x ./kubectl
+sudo mv ./kubectl /usr/local/bin/kubectl
+sudo ln -s /usr/local/bin/kubectl /usr/bin/kubectl
 ```
 
-### Step 3: Access Rancher
+**Recommendations**: To assist with establishing operating system requirements an oracle linux 8 vm can be initialised with the cloud-init provided [network-impairment-gateway-cloud-init.yaml](../oci-test-environment/network-impairment-gateway-cloud-init.yaml)
+
+## Services Overview
+
+### 1. `rancher`
+- **Image**: `rancher/rancher:latest`
+- **Role**: Rancher server for managing Kubernetes clusters.
+- **Configuration**:
+  - Runs in privileged mode and restarts automatically on failure.
+  - Configures the default gateway to route traffic through the impairment gateway at `172.18.0.3`.
+  - Starts Rancher without certificate checks (`--no-cacerts`).
+- **Ports**:
+  - `8081`: HTTP access to Rancher.
+  - `8443`: HTTPS access to Rancher.
+- **Network**: Connected to `network_cloud` with IP `172.18.0.2`.
+
+### 2. `impairment_gateway`
+- **Image**: `dewcservices/network-impairment-gateway`
+- **Role**: Acts as the impairment gateway between `network_cloud` and `network_edge`.
+- **Configuration**:
+  - Runs in privileged mode with `NET_ADMIN` capabilities for network management.
+  - Listens on port `8000` for API requests to configure impairments.
+  - Environment variables:
+    - `UPLINK_INTERFACE`: Interface for uplink traffic (default: `eth0`).
+    - `DOWNLINK_INTERFACE`: Interface for downlink traffic (default: `eth1`).
+    - `MOCK_PROCESS_CALLS`:
+        - `FALSE` for real impairments set
+        - `True` impairment commands are printed to terminal only.
+    - `DATABASE_SEEDED`: Boolean
+        - `FALSE` seeds the network impairment gateway sqlite db.
+        - `True` network impairment gateway sqlite db already seeded.
+    - `CORS_ORIGINS`: Set to allow requests from the user interface `http://localhost:8080`.
+- **Networks**:
+  - Connected to both `network_cloud` (`172.18.0.3`) and `network_edge` (`172.19.0.3`).
+- **Dependencies**: Depends on the `rancher` container.
+
+### 3. `impairment_gateway_ui`
+- **Image**: `dewcservices/network-impairment-gateway-ui`
+- **Role**: User interface for configuring and monitoring network impairments on the impairment gateway.
+- **Configuration**:
+  - Runs on port `8080`.
+  - Environment variables:
+    - `API_HOST`: Set to `http://localhost:8000` for impairment gateway API access.
+    - `WEBSOCKET_HOST`: Set to `ws://localhost:8000` for live updates from impairment gateway.
+- **Dependency**: Depends on the `impairment_gateway`.
+
+### 4. `kind`
+- uses kind cli
+
+## Network Configuration
+
+Two bridge networks are defined:
+- **`network_cloud`**: `172.18.0.0/16` subnet.
+- **`network_edge`**: `172.19.0.0/16` subnet.
+
+Each container has a specific IP address, allowing for controlled routing and network impairments between the cloud and edge environments.
+
+## Running the Setup
+
+To launch the services, run:
+
+```bash
+sudo docker-compose up -d
+```
+
+This command will start all services in the background. Access the services at the following endpoints:
+
+Rancher: http://localhost:8081 (HTTP) or https://localhost:8443 (HTTPS)
+Impairment Gateway API: http://localhost:8000
+Impairment Gateway UI: http://localhost:8080
+
+## Access Rancher
 
 1. Open Rancher at https://localhost:8443 (or the IP address of your Docker host).
 2. Follow the setup instructions to create an admin password.
 
-### Step 4: Configure the Kind Cluster
+## Configure the Kind Cluster
 
 1. Create a kind cluster with a specific configuration file (kind-config.yaml):
 
@@ -75,7 +138,7 @@ export KUBECONFIG="$(kind get kubeconfig-path --name="kind-cluster")"
 docker cp $(kind get kubeconfig-path --name="kind-cluster") kind_cluster:/root/.kube/config
 ```
 
-### Step 5: Register the Kind Cluster in Rancher
+## Register the Kind Cluster in Rancher
 
 1. In the Rancher UI, go to Cluster Management > Create and select Import an Existing Cluster.
 
@@ -88,7 +151,7 @@ docker exec -it kind_cluster <import_command>
 ```
 4. Wait for the kind cluster to appear in Rancher as a managed cluster.
 
-### Step 6: Verify the Setup
+## Verify the Setup
 
 1. Check the logs to ensure all services are running as expected:
 
@@ -100,20 +163,10 @@ docker logs impairment_gateway
 
 2. Access Rancher UI to view and manage the kind Kubernetes cluster.
 
-### Step 7: Clean Up
+## Clean Up
 
 To stop and remove all containers, run:
 
 ```sh
 docker-compose down
 ```
-
-# Notes
-
-- Network Impairment Gateway: Configure impairments as needed in the Rancher-managed kind cluster. Use the network-impairment-gateway to simulate network issues.
-- Default Credentials: Rancher initially sets up with default credentials. Update passwords for security.
-- Ports: Rancher uses ports 8080 and 8443 (HTTPS), and the impairment gateway uses 8000. Adjust these as necessary.
-
-Now, you have a working setup with Rancher managing a kind cluster and a network impairment gateway between cloud and edge networks.
-
-Now, you have a working setup with Rancher managing a kind cluster and a network impairment gateway between cloud and edge networks.
