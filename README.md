@@ -1,6 +1,6 @@
 # Cloud-Native DDIL Test Environment
 
-This repository provides a suite of test environments to simulate and test Disrupted, Disconnected, Intermittent, and Limited (DDIL) network scenarios. It offers Docker-based and Oracle Cloud Infrastructure (OCI)-based environments, leveraging network impairment gateways, Rancher, Kubernetes, and iPerf3 traffic generation tools.
+This repository provides a suite of test environments to simulate and test Disrupted, Disconnected, Intermittent, and Limited (DDIL) network scenarios. It offers Docker-based and Oracle Cloud Infrastructure (OCI)-based environments, leveraging the [network impairment gateway](https://github.com/dewcservices/network-impairment-gateway) and its [user interface]( https://github.com/dewcservices/network-impairment-gateway-ui), Rancher, Kubernetes, and iPerf3 traffic generation tools.
 
 ## Repository Structure
 
